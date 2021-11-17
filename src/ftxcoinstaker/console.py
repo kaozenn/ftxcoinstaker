@@ -3,6 +3,7 @@
 import os
 from . import client
 from pprint import pprint
+from slack_sdk.webhook import WebhookClient
 
 def main():
 
@@ -12,7 +13,10 @@ def main():
 
 	ftx = client.FtxClient(api_key=FTX_API_KEY, api_secret=FTX_API_SECRET, subaccount_name=FTX_SUBACCOUNT_NAME)
 
-	#response = ftx.create_subaccount("test")
+	SLACK_WEBHOOK_URL=os.getenv('SLACK_WEBHOOK_URL')
+	# balance = ftx.get_balances()
 
-	balance = ftx.get_balances()
-	pprint(balance)
+	slack = WebhookClient(SLACK_WEBHOOK_URL)
+	response = slack.send(text="Hello!")
+	assert response.status_code == 200
+	assert response.body == "ok"

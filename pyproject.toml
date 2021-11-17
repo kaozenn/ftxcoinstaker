@@ -8,6 +8,9 @@ authors = ["David Lehuby <david.lehuby@gmail.com>"]
 python = "^3.8"
 requests = "^2.25.1"
 ciso8601 = "^2.2.0"
+slack = "^0.0.2"
+slackclient = "^2.9.3"
+slack-sdk = "^3.11.2"
 
 [tool.poetry.dev-dependencies]
 

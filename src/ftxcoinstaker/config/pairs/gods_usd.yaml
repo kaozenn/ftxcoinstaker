@@ -1,0 +1,6 @@
+---
+pair: 'GODS/USD'
+dryrun: true
+sr_zones:
+  - - 8.3445
+  - - 3.28

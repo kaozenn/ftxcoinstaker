@@ -1,3 +1,5 @@
+# src/ftxcoinstaker/ftx_client.py
+
 import time
 import urllib.parse
 from typing import Optional, Dict, Any, List
@@ -61,6 +63,9 @@ class FtxClient:
 
     def list_markets(self) -> List[dict]:
         return self._get('markets')
+
+    def market(self, market: str) -> dict:
+        return self._get(f'markets/{market}')
 
     def get_orderbook(self, market: str, depth: int = None) -> dict:
         return self._get(f'markets/{market}/orderbook', {'depth': depth})

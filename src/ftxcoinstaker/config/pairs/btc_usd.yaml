@@ -1,0 +1,6 @@
+---
+pair: 'BTC/USD'
+dryrun: true
+sr_zones:
+  - 69000
+  - 23000

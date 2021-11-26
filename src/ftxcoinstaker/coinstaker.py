@@ -12,7 +12,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.getenv('CS_LOGGING_LEVEL'))
-
 root = os.path.dirname(__file__)
 
 class CoinStaker:
@@ -31,6 +30,7 @@ class CoinStaker:
 		self._orders_executor = cs_orders_executor.CsOrdersExecutor(self._pair)
 		s = shelve.open(f"{root}/user_data/db/{self._pair['id']}")
 		s['name'] = self._pair['name']
+		s['id'] = self._pair['id']
 		s.close()
 
 	def exec(self) -> None:

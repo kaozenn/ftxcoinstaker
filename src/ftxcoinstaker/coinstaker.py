@@ -1,52 +1,48 @@
 # src/ftxcoinstaker/coinstaker.py
+
 import os
 import random
 import time
-from . import ftx_client
-from . import utils
-from pprint import pprint
+from . import cs_orders_watcher
+from . import cs_orders_analyzer
+from . import cs_orders_executor
+import shelve
+from multiprocessing import Process
+import logging
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=os.getenv('CS_LOGGING_LEVEL'))
+
+root = os.path.dirname(__file__)
 
 class CoinStaker:
 
-    def __init__(self, pair) -> None:
-        self._pair = pair
-        self._initial_delay = random.randint(0,1)
-        self._clock = 60
-        self._ftx = {}
-        self._tracker = {}
+	def __init__(self, pair) -> None:
+		self._pair = pair
+		self._initial_delay = random.randint(0,1)
+		self._orders_watcher = {}
+		self._orders_analyzer = {}
+		self._orders_executor = {}
 
-    def _get_sr_zones(self):
-        self._tracker['sr_zones'] = self._pair['sr_zones']
+	def init(self) -> None:
+		time.sleep(self._initial_delay)
+		self._orders_watcher = cs_orders_watcher.CsOrdersWatcher(self._pair)
+		self._orders_analyzer = cs_orders_analyzer.CsOrdersAnalyzer(self._pair)
+		self._orders_executor = cs_orders_executor.CsOrdersExecutor(self._pair)
+		s = shelve.open(f"{root}/user_data/db/{self._pair['id']}")
+		s['name'] = self._pair['name']
+		s.close()
 
-    def _get_market_data(self):
-        market = self._ftx.market(self._pair['name'])
-        self._tracker['price'] = market['price']
-        self._tracker['minProvideSize'] = market['minProvideSize']
-        self._tracker['name'] = self._pair['name']
+	def exec(self) -> None:
+		procs = []
+		modules = [self._orders_watcher, self._orders_analyzer, self._orders_executor]
+		for module in modules:
+			proc = Process(target=module.run)
+			procs.append(proc)
+			proc.start()
+		for proc in procs:
+			proc.join()
 
-    def _get_open_orders(self):
-        self._tracker['openOrders'] = self._ftx.get_open_orders(self._pair['name'])
-
-    def initialise(self) -> None:
-        time.sleep(self._initial_delay)
-        self._ftx = ftx_client.FtxClient(
-            api_key=os.getenv('FTX_API_KEY'),
-            api_secret=os.getenv('FTX_API_SECRET'),
-            subaccount_name=os.getenv('FTX_SUBACCOUNT_NAME'),
-        )
-        pprint(f"Loading {self._pair['name']}")
-        self._get_sr_zones()
-        self._get_market_data()
-        self._get_open_orders()
-        pprint(self._tracker)
-
-    # def execute(self) -> None:
-        # Get open orders
-
-    def run(self) -> None:
-        self.initialise()
-        # self.execute()
-
-
-        
+	def run(self) -> None:
+		self.init()
+		self.exec()

@@ -1,4 +1,5 @@
 ---
+id: 'godsusd'
 name: 'GODS/USD'
 dryrun: true
 sr_zones:

@@ -7,8 +7,10 @@ from . import coinstaker
 from . import ftx_client
 from multiprocessing import Process
 from typing import Optional, Dict, Any, List
-from pprint import pprint
+import logging
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=os.getenv('CS_LOGGING_LEVEL'))
 
 def main() -> None:
 	check_exchange_connectivity()
@@ -24,7 +26,7 @@ def main() -> None:
 def load_pairs_config() -> List[dict]:
 	pairs_config = []
 	root = os.path.dirname(__file__)
-	pairs = glob.glob(f"{root}/config/pairs/*.yaml")
+	pairs = glob.glob(f"{root}/user_data/pairs/*.yaml")
 	for pair in pairs:
 		with open(pair, "r") as pair:
 			try:
@@ -32,7 +34,7 @@ def load_pairs_config() -> List[dict]:
 				cs = coinstaker.CoinStaker(pair)
 				pairs_config.append(cs)
 			except yaml.YAMLError as exc:
-				pprint(exc)
+				logger.error('Failed to open file', exc_info=True)
 	return pairs_config
 
 def check_exchange_connectivity() -> None:
@@ -45,4 +47,4 @@ def check_exchange_connectivity() -> None:
 		# Get account_info to test connectivity
 		account_info = ftx.get_account_info()
 	except Exception as exc:
-		pprint(f"Unable to authenticate to FTX, ensure credentials are set correct, or check internet connectivity")	
+		logger.error(f"Unable to authenticate to FTX, ensure credentials are set correct, or check internet connectivity", exc_info=True)	

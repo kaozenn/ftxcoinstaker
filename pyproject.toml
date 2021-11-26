@@ -13,6 +13,8 @@ slack-sdk = "^3.11.2"
 PyYAML = "^6.0"
 websocket = "^0.2.1"
 websocket-client = "^1.2.1"
+pymongo = "^3.12.1"
+Shelves = "^0.3.8"
 
 [tool.poetry.dev-dependencies]
 
@@ -22,3 +24,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 ftxcoinstaker = "ftxcoinstaker.main:main"
+demo = "ftxcoinstaker.demo:main"

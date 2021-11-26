@@ -1,6 +1,12 @@
 ---
-pair: 'GODS/USD'
+name: 'GODS/USD'
 dryrun: true
 sr_zones:
-  - - 8.3445
-  - - 3.28
+  buy:
+    - 1
+    - 2
+  sell:
+    - 3
+    - 4
+  ranges:
+    - [1.5, 2]

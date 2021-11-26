@@ -1,5 +1,6 @@
 ---
-pair: 'BTC/USD'
+id: 'btcusd'
+name: 'BTC/USD'
 dryrun: true
 sr_zones:
   - 69000

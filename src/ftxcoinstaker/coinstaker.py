@@ -24,7 +24,7 @@ class CoinStaker:
 		self._orders_executor = {}
 
 	def init(self) -> None:
-		time.sleep(self._initial_delay)
+		# time.sleep(self._initial_delay)
 		self._orders_watcher = cs_orders_watcher.CsOrdersWatcher(self._pair)
 		self._orders_analyzer = cs_orders_analyzer.CsOrdersAnalyzer(self._pair)
 		self._orders_executor = cs_orders_executor.CsOrdersExecutor(self._pair)
@@ -35,7 +35,8 @@ class CoinStaker:
 
 	def exec(self) -> None:
 		procs = []
-		modules = [self._orders_watcher, self._orders_analyzer, self._orders_executor]
+		# modules = [self._orders_watcher, self._orders_analyzer, self._orders_executor]
+		modules = [self._orders_watcher]
 		for module in modules:
 			proc = Process(target=module.run)
 			procs.append(proc)

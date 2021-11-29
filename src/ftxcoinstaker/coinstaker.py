@@ -42,22 +42,26 @@ class CoinStaker:
 			proc.join()
 
 	def init_orders_db(self) -> None:
-		sql = '''CREATE TABLE IF NOT EXISTS orders
-			(id INT PRIMARY KEY     NOT NULL,
-			createdAtTS           INT    NOT NULL,
-			createdAtDate            CHAR(32)     NOT NULL,
-			side            CHAR(4)     NOT NULL,
-			price            FLOAT     NOT NULL,
-			size            FLOAT     NOT NULL,
-			filledSize            FLOAT     NOT NULL,
-			remainingSize            FLOAT     NOT NULL,
-			orderValue            FLOAT     NOT NULL,
-			status            FLOAT     NOT NULL,
-			lastUpdateDate            CHAR(32),
-			lastUpdateTS           INT,
-			consolidatedOrderId           INT);'''
-		conn = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}")
+		sql = '''
+			CREATE TABLE IF NOT EXISTS orders(
+				id						INT PRIMARY KEY		NOT NULL,
+				createdAtTs				INT					NOT NULL,
+				createdAtDate			CHAR(32)			NOT NULL,
+				side					CHAR(4)				NOT NULL,
+				price					FLOAT				NOT NULL,
+				size					FLOAT				NOT NULL,
+				filledSize				FLOAT				NOT NULL,
+				remainingSize			FLOAT				NOT NULL,
+				orderValue				FLOAT				NOT NULL,
+				status					FLOAT				NOT NULL,
+				updatedAtDate			CHAR(32),
+				updatedAtTs				INT,
+				consolidatedOrderId		INT
+			);
+			'''
+		conn = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}.db")
 		conn.execute(sql)
+		conn.close()
 		logger.info(f"[{self._pair['name']}] - database {self._pair['id']} initialised successfuly")
 
 

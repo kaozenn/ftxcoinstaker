@@ -2,7 +2,10 @@
 
 import os
 import logging
+import sqlite3
+from slack_sdk.webhook import WebhookClient
 from pprint import pprint
+import time
 from . import ftx_client
 from . import utils
 from typing import Optional, Dict, Any, List
@@ -18,65 +21,113 @@ ftx = ftx_client.FtxClient(
 
 root = os.path.dirname(__file__)
 
+slack = WebhookClient(os.getenv('CS_SLACK_WEBHOOK_URL'))
+
 
 class CsOrdersWatcher:
 
 	def __init__(self, pair) -> None:
 		self._pair = pair
+		self._clock = 10
 
 	def _init(self) -> None:
 		logger.info(f"[{self._pair['name']}] - Init")
 
 	def _exec(self) -> None:
-		logger.info(f"[{self._pair['name']}] - Exec")
-		# # Do an infinite loop
-		# ftx_open_orders = self._get_ftx_open_orders()
-		# diff_open_orders = self._diff_open_orders(self._pair['open_orders'], ftx_open_orders)
-		# self._set_local_open_orders(ftx_open_orders)
+		while(True):
+			# Monitor new ftx open orders
+			self._monitor_new_ftx_open_orders()
+			time.sleep(self._clock)
 
-	# def _get_db_open_orders(self) -> List[dict]:
-	# 	self._shelve = shelve.open(f"{root}/user_data/db/{self._pair['id']}")
-	# 	try:
-	# 		open_orders = self._shelve['open_orders']
-	# 	except Exception as exc:
-	# 		logger.debug(f"[{self._pair['name']}] - No open order stored")
-	# 		self._shelve['open_orders'] = []
-	# 	else:
-	# 		return open_orders
-	# 	self._shelve.close()
+	def _get_db_open_orders(self) -> List[dict]:
+		open_orders = []
+		c = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}.db")
+		sql = '''
+			SELECT id, createdAtTs, createdAtDate, side, price,
+					size, filledSize, remainingSize, orderValue, status
+			FROM orders
+			WHERE status = 'open'
+			;'''
+		results = c.execute(sql)
+		rows = results.fetchall()
+		c.close()
 
-	# def _set_local_open_orders(self, open_orders) -> None:
-	# 	self._shelve = shelve.open(f"{root}/user_data/db/{self._pair['id']}")
-	# 	try:
-	# 		self._shelve['open_orders'] = open_orders
-	# 	except Exception as exc:
-	# 		logger.debug(f"[{self._pair['name']}] - {exc}")
-	# 	self._shelve.close()
-	# 	pprint('test')
+		for row in rows:
+			open_order = {}
+			open_order['id'] = row[0]
+			open_order['createdAtTs'] = row[1]
+			open_order['createdAtDate'] = row[2]
+			open_order['side'] = row[3]
+			open_order['price'] = row[4]
+			open_order['size'] = row[5]
+			open_order['filledSize'] = row[6]
+			open_order['remainingSize'] = row[7]
+			open_order['orderValue'] = row[8]
+			open_order['status'] = row[9]
+			open_orders.append(open_order)
+		return open_orders
+
+	def _set_db_open_orders(self, open_orders) -> None:
+		c = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}.db")
+		for open_order in open_orders:
+			sql = f"""
+				INSERT INTO orders (
+					id, createdAtTs, createdAtDate, side, price,
+					size, filledSize, remainingSize, orderValue, status
+				)
+				VALUES (
+					{open_order['id']},
+					{open_order['createdAtTs']},
+					"{open_order['createdAtDate']}",
+					"{open_order['side']}",
+					{open_order['price']},
+					{open_order['size']},
+					{open_order['filledSize']},
+					{open_order['remainingSize']},
+					{open_order['orderValue']},
+					"{open_order['status']}"				
+				)
+				;"""
+			results = c.execute(sql)
+		c.commit()
+		c.close()
 	
-	# def _get_ftx_open_orders(self) -> List[dict]:
-	# 	ftx_open_orders = ftx.get_open_orders(self._pair['name'])
-	# 	open_orders = []
-	# 	for ftx_open_order in ftx_open_orders:
-	# 		open_order = {}
-	# 		open_order['id'] = ftx_open_order['id']
-	# 		open_order['price'] = ftx_open_order['price']
-	# 		open_order['side'] = ftx_open_order['side']
-	# 		open_order['size'] = ftx_open_order['size']
-	# 		open_order['filledSize'] = ftx_open_order['filledSize']
-	# 		open_order['remainingSize'] = ftx_open_order['remainingSize']
-	# 		open_order['timestamp'] = utils.ftx_date_to_timestamp(ftx_open_order['createdAt'])
-	# 		open_order['order_value'] = ftx_open_order['size'] * ftx_open_order['price']
-	# 		open_orders.append(open_order)
-	# 	return open_orders
+	def _get_ftx_open_orders(self) -> List[dict]:
+		ftx_open_orders = ftx.get_open_orders(self._pair['name'])
+		open_orders = []
+		for ftx_open_order in ftx_open_orders:
+			open_order = {}
+			open_order['id'] = ftx_open_order['id']
+			open_order['createdAtTs'] = utils.ftx_date_to_timestamp(ftx_open_order['createdAt'])
+			open_order['createdAtDate'] = ftx_open_order['createdAt']
+			open_order['side'] = ftx_open_order['side']
+			open_order['price'] = ftx_open_order['price']
+			open_order['size'] = ftx_open_order['size']
+			open_order['filledSize'] = ftx_open_order['filledSize']
+			open_order['remainingSize'] = ftx_open_order['remainingSize']
+			open_order['orderValue'] = ftx_open_order['size'] * ftx_open_order['price']
+			open_order['status'] = ftx_open_order['status']
+			open_orders.append(open_order)
+		return open_orders
 
-	# def _diff_open_orders(self, local_open_orders, ftx_open_orders)  -> List[dict]:
-	# 	delta = []
-	# 	for open_order in local_open_orders:
-	# 		if open_order not in ftx_open_orders:
-	# 			logger.debug(f"[{self._pair['name']}] - {open_order['id']} not present on in FTX open orders")
-	# 			delta.append(open_order)
-	# 	return delta
+	def _diff_orders(self, list_a, list_b)  -> List[dict]:
+		# Return list of objects in list_a that do not exist in list_b
+		delta = []
+		for order in list_a:
+			if order not in list_b:
+				logger.debug(f"[{self._pair['name']}] - Adding order id {order['id']}")
+				delta.append(order)
+		return delta
+
+	def _monitor_new_ftx_open_orders(self) -> None:
+		db_open_orders = self._get_db_open_orders()
+		ftx_open_orders = self._get_ftx_open_orders()
+		new_open_orders = self._diff_orders(ftx_open_orders,db_open_orders)
+		if len(new_open_orders) > 0:
+			# Add new orders to db
+			self._set_db_open_orders(new_open_orders)
+			logger.info(f"[{self._pair['name']}] - Adding orders {new_open_orders} to local database")
+			slack_response = slack.send(text=f"[{self._pair['name']}] - Adding orders {new_open_orders} to local database")
 
 	def run(self) -> None:
 		self._init()

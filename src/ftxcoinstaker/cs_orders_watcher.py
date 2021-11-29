@@ -5,6 +5,7 @@ import logging
 import sqlite3
 from slack_sdk.webhook import WebhookClient
 from pprint import pprint
+from datetime import datetime
 import time
 from . import ftx_client
 from . import utils
@@ -37,6 +38,7 @@ class CsOrdersWatcher:
 		while(True):
 			# Monitor new ftx open orders
 			self._monitor_new_ftx_open_orders()
+			self._monitor_recent_ftx_closed_orders()
 			time.sleep(self._clock)
 
 	def _get_db_open_orders(self) -> List[dict]:
@@ -44,7 +46,7 @@ class CsOrdersWatcher:
 		c = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}.db")
 		sql = '''
 			SELECT id, createdAtTs, createdAtDate, side, price,
-					size, filledSize, remainingSize, orderValue, status
+				   size, filledSize, remainingSize, orderValue, status
 			FROM orders
 			WHERE status = 'open'
 			;'''
@@ -91,7 +93,21 @@ class CsOrdersWatcher:
 			results = c.execute(sql)
 		c.commit()
 		c.close()
-	
+
+	def _update_db_orders_status(self, orders, status) -> None:
+		c = sqlite3.connect(f"{root}/user_data/db/{self._pair['id']}.db")
+		dt = datetime.now()
+		for order in orders:
+			sql = f"""
+				UPDATE orders
+				SET status = 'closed',
+					updatedAtTs = {datetime.timestamp(dt)}			
+				WHERE id = {order['id']}
+				;"""
+			results = c.execute(sql)
+		c.commit()
+		c.close()
+
 	def _get_ftx_open_orders(self) -> List[dict]:
 		ftx_open_orders = ftx.get_open_orders(self._pair['name'])
 		open_orders = []
@@ -120,6 +136,7 @@ class CsOrdersWatcher:
 		return delta
 
 	def _monitor_new_ftx_open_orders(self) -> None:
+		# Compare FTX open orders and add them in local DB if they don't exist
 		db_open_orders = self._get_db_open_orders()
 		ftx_open_orders = self._get_ftx_open_orders()
 		new_open_orders = self._diff_orders(ftx_open_orders,db_open_orders)
@@ -128,6 +145,17 @@ class CsOrdersWatcher:
 			self._set_db_open_orders(new_open_orders)
 			logger.info(f"[{self._pair['name']}] - Adding orders {new_open_orders} to local database")
 			slack_response = slack.send(text=f"[{self._pair['name']}] - Adding orders {new_open_orders} to local database")
+
+	def _monitor_recent_ftx_closed_orders(self) -> None:
+		# Check local open orders and compare them with existing FTX open orders
+		# If They are not present on the exchange, set orders in local database to closed
+		db_open_orders = self._get_db_open_orders()
+		ftx_open_orders = self._get_ftx_open_orders()
+		new_closed_orders = self._diff_orders(db_open_orders, ftx_open_orders)
+		if len(new_closed_orders) > 0:
+			self._update_db_orders_status(new_closed_orders,'closed')
+			logger.info(f"[{self._pair['name']}] - New closed order: {new_closed_orders}")
+			slack_response = slack.send(text=f"[{self._pair['name']}] - New closed order: {new_closed_orders}")
 
 	def run(self) -> None:
 		self._init()
